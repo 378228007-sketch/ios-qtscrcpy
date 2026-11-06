@@ -1,0 +1,53 @@
+name: Build ioscpy hook tweak
+
+# 只要把本仓库推到 GitHub，Actions 会自动编译出 deb（rootful / rootless 各一份）。
+# 也可在 Actions 页面手动点 Run workflow。
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      THEOS: /opt/theos
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make git curl xz-utils fakeroot dpkg-dev libssl-dev
+
+      - name: Install Theos + iOS SDK
+        run: |
+          sudo git clone --recursive --depth 1 https://github.com/theos/theos.git "$THEOS"
+          git clone --depth 1 https://github.com/theos/sdks.git /tmp/sdks
+          sudo mkdir -p "$THEOS/sdks"
+          sudo cp -r /tmp/sdks/iPhoneOS*.sdk "$THEOS/sdks/" || true
+          sudo chown -R "$USER":"$USER" "$THEOS"
+
+      - name: Build (rootful)
+        run: |
+          cd device/tweak
+          make package FINALPACKAGE=1 -j"$(nproc)"
+
+      - name: Build (rootless)
+        run: |
+          cd device/tweak
+          make clean
+          make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless -j"$(nproc)"
+
+      - name: Collect debs
+        run: |
+          mkdir -p out
+          find device -name '*.deb' -path '*/packages/*' -exec cp -v {} out/ \;
+          ls -l out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ioscpy-tweak-debs
+          path: out/*.deb
+          if-no-files-found: error
