@@ -30,6 +30,9 @@ jobs:
           ls "$THEOS/toolchain/linux/iphone/bin" | head -20
           ls "$THEOS/sdks"
 
+      - name: Fix maintainer script permissions
+        run: chmod 0755 device/layout/DEBIAN/postinst device/layout/DEBIAN/prerm
+
       - name: Build (rootful)
         run: |
           cd device
