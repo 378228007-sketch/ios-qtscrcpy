@@ -1,7 +1,4 @@
-name: Build ioscpy hook tweak
-
-# 只要把本仓库推到 GitHub，Actions 会自动编译出 deb（rootful / rootless 各一份）。
-# 也可在 Actions 页面手动点 Run workflow。
+name: Build ioscpy tweak
 
 on:
   workflow_dispatch:
@@ -19,24 +16,28 @@ jobs:
       - name: Install build deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y make git curl xz-utils fakeroot dpkg-dev libssl-dev
+          sudo apt-get install -y make git curl xz-utils fakeroot dpkg-dev libssl-dev libtinfo6
 
-      - name: Install Theos + iOS SDK
+      - name: Install Theos + iOS toolchain + SDK
         run: |
           sudo git clone --recursive --depth 1 https://github.com/theos/theos.git "$THEOS"
           git clone --depth 1 https://github.com/theos/sdks.git /tmp/sdks
           sudo mkdir -p "$THEOS/sdks"
-          sudo cp -r /tmp/sdks/iPhoneOS*.sdk "$THEOS/sdks/" || true
+          sudo cp -r /tmp/sdks/iPhoneOS*.sdk "$THEOS/sdks/"
+          curl -sL https://github.com/L1ghtmann/llvm-project/releases/latest/download/iOSToolchain-x86_64.tar.xz | sudo tar -xJf - -C "$THEOS/toolchain/"
           sudo chown -R "$USER":"$USER" "$THEOS"
+          test -x "$THEOS/toolchain/linux/iphone/bin/clang"
+          ls "$THEOS/toolchain/linux/iphone/bin" | head -20
+          ls "$THEOS/sdks"
 
       - name: Build (rootful)
         run: |
-          cd device/tweak
+          cd device
           make package FINALPACKAGE=1 -j"$(nproc)"
 
       - name: Build (rootless)
         run: |
-          cd device/tweak
+          cd device
           make clean
           make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless -j"$(nproc)"
 
@@ -48,6 +49,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ioscpy-tweak-debs
+          name: ioscpy-debs
           path: out/*.deb
           if-no-files-found: error
