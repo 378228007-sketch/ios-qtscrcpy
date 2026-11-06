@@ -185,6 +185,10 @@ static float    gFingerX[IOSPY_MAX_FINGERS];
 static float    gFingerY[IOSPY_MAX_FINGERS];
 static int      gFingerCount = 0;
 static uint64_t gTouchEpoch = 0;
+// Build marker: lets you confirm the running dylib is the multi-touch build
+// (`strings ioscpyhook.dylib | grep IOSCPY_MULTITOUCH`).
+static bool     gMTLogged = false;
+static const char *kIOSPYMTTag = "IOSCPY_MULTITOUCH_V1";
 
 void IOSPYInjectTouch(IOSPYTouchPhase phase, uint8_t fingerID, float x, float y) {
     hidInit();
@@ -234,6 +238,11 @@ void IOSPYInjectTouch(IOSPYTouchPhase phase, uint8_t fingerID, float x, float y)
 
     gFingerX[idx] = x;
     gFingerY[idx] = y;
+
+    if (!gMTLogged && gFingerCount >= 2) {
+        gMTLogged = true;
+        NSLog(@"[ioscpyhook] %s active=%d", kIOSPYMTTag, gFingerCount);
+    }
 
     float rx, ry;
     rotatePoint(currentOrientation(), x, y, &rx, &ry);
